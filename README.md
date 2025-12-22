@@ -3,6 +3,8 @@
 
 # openMHA
 
+**[日本語版はこちら / Japanese version](README_ja.md)**
+
 [Open Master Hearing Aid (openMHA)](https://www.openmha.org)
 
 DOI:[10.5281/zenodo.4569575](https://doi.org/10.5281/zenodo.4569575)

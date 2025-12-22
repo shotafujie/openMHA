@@ -1,5 +1,7 @@
 # Installation instructions
 
+**[日本語版はこちら / Japanese version](INSTALLATION_ja.md)**
+
 This installation guide describes the installation process of openMHA on
 Linux (__I.__),  macOS(__II.__), and Windows (__III.__) operating systems.
 

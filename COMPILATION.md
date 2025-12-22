@@ -1,5 +1,7 @@
 # Compilation instructions for developers
 
+**[日本語版はこちら / Japanese version](COMPILATION_ja.md)**
+
 Please see file INSTALLATION.md for installing pre-compiled binary packages on
 Windows, macOS, and Linux.  It is not necessary to compile openMHA yourself unless
 you want to make changes to openMHA itself.
