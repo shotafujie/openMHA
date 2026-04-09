@@ -19,7 +19,7 @@ from collections.abc import Sequence, MutableSequence
 from encodings.utf_8 import encode as encode_utf8
 from functools import update_wrapper
 import re
-import telnetlib
+import socket
 
 _round_to_square_brackets = str.maketrans('()', '[]')
 # This matches either a) digits *not* preceded by an opening parenthesis and
@@ -82,17 +82,19 @@ class MHAConnection:
     """A class for communicating with a Master Hearing Aid (MHA) instance.
 
     An instance of this class represents a connection to an MHA process and
-    provides a thin abstraction over its network protocoll.
+    provides a thin abstraction over its network protocol.
 
-    See the documentation of `telnetlib.Telnet` for any additional constructor
-    arguments.
+    Uses raw TCP sockets (compatible with Python 3.13+, where telnetlib
+    has been removed).
     """
 
-    def __init__(self, host="localhost", port=33337, *args, **kwargs):
+    def __init__(self, host="localhost", port=33337, timeout=10):
 
-        self._args = (host, port, *args)
-        self._kwargs = kwargs
-        self._tn_con = telnetlib.Telnet(host, port, *args, **kwargs)
+        self._host = host
+        self._port = port
+        self._timeout = timeout
+        self._sock = socket.create_connection((host, port), timeout=timeout)
+        self._buf = b''
 
         # convenience aliases; defined like this so that they retain the
         # original doc-string and in order to avoid an additional function call
@@ -103,26 +105,51 @@ class MHAConnection:
         """Close the connection and open it again.
         """
 
-        self._tn_con.close()
-        self._tn_con.open(*self._args, **self._kwargs)
+        self._sock.close()
+        self._sock = socket.create_connection(
+            (self._host, self._port), timeout=self._timeout
+        )
+        self._buf = b''
+
+    def _recv_until(self, markers):
+        """Receive data until one of the byte-string markers is found.
+
+        Returns (index_of_marker, full_response) where index_of_marker
+        is the index into the markers list, or -1 on timeout.
+        """
+        while True:
+            for i, marker in enumerate(markers):
+                pos = self._buf.find(marker)
+                if pos != -1:
+                    end = pos + len(marker)
+                    resp = self._buf[:end]
+                    self._buf = self._buf[end:]
+                    return i, resp
+            try:
+                chunk = self._sock.recv(4096)
+            except socket.timeout:
+                return -1, self._buf
+            if not chunk:
+                return -1, self._buf
+            self._buf += chunk
 
     def _send_command(self, buffer, /):
         """Send a command to an MHA instance.
 
-        The argument is a buffer as expected by self.write(), and hence should
-        be terminated by a newline character (b'\\n').
+        The argument is a buffer that should be terminated by a newline
+        character (b'\\n').
         """
 
-        self._tn_con.write(buffer)
-        err_code, _match, resp = self._tn_con.expect(
-            [br'\(MHA:success\)', br'\(MHA:failure\)']
+        self._sock.sendall(buffer)
+        idx, resp = self._recv_until(
+            [b'(MHA:success)', b'(MHA:failure)']
         )
-        if err_code == 0:
+        if idx == 0:
             return resp.rpartition(b'(MHA:success)')[0].strip()
         else:
             raise ValueError(
                 'Error sending message {} with error code {}:\nResponse: {}'
-                .format(buffer, err_code, resp)
+                .format(buffer, idx, resp)
             )
 
     @_stringify()
@@ -313,6 +340,10 @@ class MHAConnection:
         """The exit method of the context manager protocol.
         """
 
-        self._tn_con.close()
+        self._sock.close()
         # do *not* ignore exceptions raised in the with-statement context
         return False
+
+    def close(self):
+        """Close the connection."""
+        self._sock.close()
