@@ -330,6 +330,69 @@ class MHAConnection:
 
         return self._send_command(path.strip() + b'?read:' + file_name + b'\n')
 
+    def get_recursive(self, path='', perm=None):
+        """Recursively retrieve all variables under a parser node.
+
+        This is a Python equivalent of MATLAB's mha_get.m. If the node
+        at ``path`` is a parser, it recurses into all entries and returns
+        a nested dictionary. Otherwise it returns the converted leaf value.
+
+        Parameters
+        ----------
+        path : str, optional
+            The MHA parser path to start from. Default is the root.
+        perm : str or None, optional
+            If given, only include variables with this permission
+            (e.g. ``'writable'``).
+
+        Returns
+        -------
+        dict or value
+            A nested dictionary for parser nodes, or a Python value
+            for leaf variables.
+        """
+        node_type = self.get_type(path)
+
+        if node_type == 'parser':
+            result = {}
+            entries = self.get_entries(path)
+            for entry in entries:
+                child_path = '{}.{}'.format(path, entry) if path else entry
+                if perm is not None:
+                    try:
+                        if not self.is_writable(child_path):
+                            if perm == 'writable':
+                                continue
+                    except ValueError:
+                        pass
+                result[entry] = self.get_recursive(child_path, perm=perm)
+            return result
+
+        return self.get_val(path)
+
+    def set_recursive(self, path, values):
+        """Recursively set MHA variables from a dictionary.
+
+        This is a Python equivalent of MATLAB's mha_set.m. It converts
+        the dictionary to a flat list of MHA assignments (using
+        :func:`~openMHA.mha_utils.dict_to_mhacfg`) and sends each one.
+
+        Parameters
+        ----------
+        path : str
+            The MHA parser path prefix.
+        values : dict or value
+            A nested dictionary of values to set, or a single value.
+        """
+        from .mha_utils import dict_to_mhacfg
+
+        assignments = dict_to_mhacfg(values, prefix=path)
+        for assignment in assignments:
+            cmd = assignment + '\n'
+            if isinstance(cmd, str):
+                cmd = cmd.encode('utf-8')
+            self._send_command(cmd)
+
     def __enter__(self):
         """The enter method of the context manager protocol.
         """
