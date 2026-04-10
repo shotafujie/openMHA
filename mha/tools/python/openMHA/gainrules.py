@@ -16,9 +16,8 @@
 """Hearing aid gain prescription rules.
 
 Python equivalents of openMHA's MATLAB gain rule functions:
-gainrule_camfit_linear.m and gainrule_camfit_compr.m.
-
-These implement the Cambridge fitting rules based on Moore (1998, 1999).
+gainrule_camfit_linear.m, gainrule_camfit_compr.m, gainrule_NALRP.m,
+gainrule_linear40.m, and gainrule_plack2004.m.
 
 Audiogram format (dict)::
 
@@ -55,7 +54,9 @@ Example usage:
     # result['l'] is a 2D list: [num_levels x num_bands] of gains in dB
 """
 
-from .audiology import isothr, freq_interp_sh, ltass_speech_level
+import math
+
+from .audiology import isothr, freq_interp_sh, ltass_speech_level, _interp1_linear
 
 
 def camfit_linear(audiogram, fitmodel, noisegate=45, max_output=100):
@@ -137,6 +138,363 @@ def camfit_linear(audiogram, fitmodel, noisegate=45, max_output=100):
             'level': [noisegate] * num_bands,
             'slope': [1.0] * num_bands,
         }
+
+    return result
+
+
+def _nalrp_gains(htl, fhtl, f):
+    """Compute NAL-RP prescribed REIG (dB) at frequencies *f*.
+
+    Internal helper implementing the NalRP.m algorithm.
+
+    Parameters
+    ----------
+    htl : list of float
+        Hearing threshold levels in dB HL.
+    fhtl : list of float
+        Audiometric frequencies corresponding to *htl*.
+    f : list of float
+        Target frequencies for the prescription.
+
+    Returns
+    -------
+    list of float
+        Prescribed real-ear insertion gains in dB.
+    """
+    f_prescr = [250, 500, 1000, 1500, 2000, 3000, 4000, 6000]
+    idx500, idx1000, idx2000 = 1, 2, 4  # indices into f_prescr
+    gain_zero = [-17, -8, 1, 1, -1, -2, -2, -2]
+    gain_factor = 0.31
+    gain_factor_m = 0.15
+    gain_factor_p = 0.20
+
+    # Severe-loss correction table (Byrne et al 1991, Fig 9)
+    h_severe_2000 = [95, 100, 105, 110, 115, 120]
+    g_severe = [
+        [4, 3, 0, -1, -2, -2, -2, -2],
+        [6, 4, 0, -2, -3, -3, -3, -3],
+        [8, 5, 0, -3, -5, -5, -5, -5],
+        [11, 7, 0, -3, -6, -6, -6, -6],
+        [13, 8, 0, -4, -8, -8, -8, -8],
+        [15, 9, 0, -5, -9, -9, -9, -9],
+    ]
+
+    # Extrapolate audiogram edges
+    fhtl_ext = [1.0] + list(fhtl) + [20000.0]
+    htl_ext = [htl[0]] + list(htl) + [htl[-1]]
+
+    log_fhtl = [math.log(ff) for ff in fhtl_ext]
+    log_fp = [math.log(ff) for ff in f_prescr]
+    h_loss = _interp1_linear(log_fhtl, htl_ext, log_fp)
+
+    h_loss_3fa = (h_loss[idx500] + h_loss[idx1000] + h_loss[idx2000]) / 3.0
+    g_prescr = [gain_factor * h_loss[i] + gain_factor_m * h_loss_3fa
+                + gain_zero[i] for i in range(8)]
+
+    # NAL-RP correction for severe loss
+    if h_loss_3fa > 60:
+        g_prescr = [g_prescr[i] + gain_factor_p * (h_loss_3fa - 60)
+                    for i in range(8)]
+
+    # Extra NAL-RP correction for severe loss at 2 kHz
+    if h_loss[idx2000] >= 95:
+        corrections = []
+        for i in range(8):
+            col = [g_severe[row][i] for row in range(6)]
+            corr = _interp1_linear(h_severe_2000, col, [h_loss[idx2000]])[0]
+            corrections.append(corr)
+        g_prescr = [g_prescr[i] + corrections[i] for i in range(8)]
+
+    g_prescr = [max(0.0, g) for g in g_prescr]
+
+    # Extend for extrapolation (zero gain outside prescription range)
+    f_ext = [1e-300, 50.0] + f_prescr + [10000.0, 100000.0]
+    g_ext = [0.0, 0.0] + g_prescr + [0.0, 0.0]
+    log_f_ext = [math.log(ff) for ff in f_ext]
+    log_f_out = [math.log(ff) for ff in f]
+    return _interp1_linear(log_f_ext, g_ext, log_f_out)
+
+
+def nalrp(audiogram, fitmodel, noisegate=-40):
+    """NAL-RP prescription rule for hearing aid fitting.
+
+    Linear gain rule (same gain at all input levels) using the
+    National Acoustic Laboratories' Revised Profound (NAL-RP)
+    procedure.
+
+    References:
+        Byrne & Dillon (1986). Ear Hearing 7, 257-265. (NAL-R)
+        Byrne, Parkinson & Newall (1990). Ear Hearing 11, 40-49.
+        Byrne, Parkinson & Newall (1991). The Vanderbilt Hearing Aid
+        Report II, York Press, 295-300. (NAL-RP)
+
+    Python equivalent of MATLAB's gainrule_NALRP.m + NalRP.m.
+
+    Parameters
+    ----------
+    audiogram : dict
+        Audiogram data (same format as camfit_linear).
+    fitmodel : dict
+        Fitting model (same format as camfit_linear).
+    noisegate : float, optional
+        Noise gate level in dB (default -40).
+
+    Returns
+    -------
+    dict
+        Gain table with keys for each side (2D list: levels x bands),
+        and ``noisegate`` (dict of level/slope per side).
+    """
+    freqs = fitmodel['frequencies']
+    levels = fitmodel['levels']
+    num_bands = len(freqs)
+    num_levels = len(levels)
+
+    result = {'noisegate': {}}
+
+    for side in fitmodel['side']:
+        htl_data = audiogram.get(side, {}).get('htl_ac', {'f': [], 'hl': []})
+        gains = _nalrp_gains(htl_data['hl'], htl_data['f'], freqs)
+
+        gain_table = [list(gains) for _ in range(num_levels)]
+        result[side] = gain_table
+
+        result['noisegate'][side] = {
+            'level': [noisegate] * num_bands,
+            'slope': [1.0] * num_bands,
+        }
+
+    return result
+
+
+def linear40(audiogram, fitmodel, noisegate=35):
+    """Linear 40% hearing-loss rule for hearing aid fitting.
+
+    Prescribes 40% of the hearing loss as insertion gain, constant
+    across all input levels (no compression).
+
+    Python equivalent of MATLAB's gainrule_linear40.m.
+
+    Parameters
+    ----------
+    audiogram : dict
+        Audiogram data (same format as camfit_linear).
+    fitmodel : dict
+        Fitting model (same format as camfit_linear).
+    noisegate : float, optional
+        Noise gate level in dB (default 35).
+
+    Returns
+    -------
+    dict
+        Gain table with keys for each side (2D list: levels x bands),
+        and ``noisegate`` (dict of level/slope per side).
+    """
+    freqs = fitmodel['frequencies']
+    levels = fitmodel['levels']
+    num_bands = len(freqs)
+    num_levels = len(levels)
+
+    result = {'noisegate': {}}
+
+    for side in fitmodel['side']:
+        htl_data = audiogram.get(side, {}).get('htl_ac', {'f': [], 'hl': []})
+        htl = freq_interp_sh(htl_data['f'], htl_data['hl'], freqs)
+        gains = [0.4 * h for h in htl]
+
+        gain_table = [list(gains) for _ in range(num_levels)]
+        result[side] = gain_table
+
+        result['noisegate'][side] = {
+            'level': [noisegate] * num_bands,
+            'slope': [1.0] * num_bands,
+        }
+
+    return result
+
+
+def _equal_loudness_contour80(frequencies):
+    """ISO 226:2003 equal-loudness contour at 80 phon.
+
+    Parameters
+    ----------
+    frequencies : list of float
+        Frequencies in Hz.
+
+    Returns
+    -------
+    list of float
+        Sound pressure levels in dB SPL at each frequency.
+    """
+    data_f = [20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 600, 900,
+              1000, 1600, 2000, 3000, 4000, 5000, 7000, 9000, 10000,
+              16000, 18000, 20000]
+    data_l = [118, 111, 106, 102, 99, 95, 92, 85, 82, 81, 80, 80,
+              80, 82, 80, 78, 79, 84, 90, 93, 93, 85, 84, 90]
+    log_f = [math.log(f) for f in data_f]
+    log_q = [math.log(f) for f in frequencies]
+    return _interp1_linear(log_f, data_l, log_q)
+
+
+def plack2004(audiogram, fitmodel):
+    """Plack (2004) physiologically motivated gain prescription.
+
+    Compressive gain rule based on outer hair cell (OHC) gain loss
+    model. Outer and middle ear filter based on ISO 226:2003
+    equal-loudness contour at 80 phon.
+
+    Reference:
+        Plack, Drga & Lopez-Poveda (2004), "Inferred basilar-membrane
+        response functions for listeners with mild to moderate
+        sensorineural hearing loss." J. Acoust. Soc. Am. 115(4),
+        1684-1695.
+
+    Python equivalent of MATLAB's gainrule_plack2004.m.
+
+    Parameters
+    ----------
+    audiogram : dict
+        Audiogram data (same format as camfit_linear).
+    fitmodel : dict
+        Fitting model (same format as camfit_linear).
+
+    Returns
+    -------
+    dict
+        Gain table with keys for each side (2D list: levels x bands).
+    """
+    freqs = fitmodel['frequencies']
+    levels = fitmodel['levels']
+    num_bands = len(freqs)
+    num_levels = len(levels)
+
+    max_ohc_gain = 40.0
+    l_min_comp = 25.0
+    l_max_comp = 87.0
+
+    eq_n = _equal_loudness_contour80(freqs)
+    eq_offset = [eq_n[i] - 80.0 for i in range(num_bands)]
+
+    result = {}
+
+    for side in fitmodel['side']:
+        htl_data = audiogram.get(side, {}).get('htl_ac', {'f': [], 'hl': []})
+        aud_f = htl_data['f']
+        aud_hl = htl_data['hl']
+
+        # Interpolate HTL in log-frequency, clamp to >= 0
+        log_aud_f = [math.log(f) for f in aud_f]
+        log_fit_f = [math.log(f) for f in freqs]
+        htl_interp = _interp1_linear(log_aud_f, aud_hl, log_fit_f)
+        htl = [max(0.0, h) for h in htl_interp]
+
+        htl_ohc = [min(max_ohc_gain, h) for h in htl]
+        htl_lin = [0.0] * num_bands  # GainLinRatio = 0.0
+
+        gain_table = []
+        for lev_idx in range(num_levels):
+            row = []
+            for k in range(num_bands):
+                # Piecewise linear I/O function breakpoints
+                compress_range = l_max_comp - l_min_comp
+                ohc_ratio = (max_ohc_gain - htl_ohc[k]) / max_ohc_gain
+                l3 = l_max_comp - compress_range * ohc_ratio
+
+                pt_l = [l_min_comp - 1 + eq_offset[k],
+                        l_min_comp + eq_offset[k],
+                        l3 + eq_offset[k],
+                        l_max_comp + 1 + eq_offset[k]]
+                pt_g = [htl_ohc[k] + htl_lin[k],
+                        htl_ohc[k] + htl_lin[k],
+                        htl_lin[k],
+                        htl_lin[k]]
+
+                # Remove duplicate L values (unique)
+                unique_l = []
+                unique_g = []
+                for i in range(len(pt_l)):
+                    if pt_l[i] not in unique_l:
+                        unique_l.append(pt_l[i])
+                        unique_g.append(pt_g[i])
+
+                gain = _interp1_linear(unique_l, unique_g,
+                                       [levels[lev_idx]])[0]
+                row.append(gain)
+            gain_table.append(row)
+
+        result[side] = gain_table
+
+    return result
+
+
+def crvar_nalrp(audiogram, fitmodel, compression_ratio=2.0):
+    """NAL-RP with variable compression ratio.
+
+    Applies NAL-RP prescribed gains at 65 dB input level and uses
+    the specified compression ratio. The knee point is set at the
+    LTASS speech level for 40 dB broadband input.
+
+    Python equivalent of MATLAB's gainrule_CRvar_NALRP.m.
+
+    Parameters
+    ----------
+    audiogram : dict
+        Audiogram data (same format as camfit_linear).
+    fitmodel : dict
+        Fitting model (same format as camfit_linear).
+    compression_ratio : float, optional
+        Compression ratio (default 2.0, must be >= 1 and < 100).
+
+    Returns
+    -------
+    dict
+        Gain table with keys for each side (2D list: levels x bands),
+        and ``compression`` parameters per side.
+    """
+    if compression_ratio < 1 or compression_ratio >= 100:
+        raise ValueError("compression_ratio must be >= 1 and < 100")
+
+    freqs = fitmodel['frequencies']
+    levels = fitmodel['levels']
+    num_bands = len(freqs)
+    num_levels = len(levels)
+
+    c_slope = 1.0 / compression_ratio
+
+    # Knee point and target speech levels in compressor bands
+    l_kneepoint, _ = ltass_speech_level(fitmodel['edge_frequencies'], 40)
+    l_target, _ = ltass_speech_level(fitmodel['edge_frequencies'], 65)
+
+    result = {'compression': {}}
+
+    for side in fitmodel['side']:
+        htl_data = audiogram.get(side, {}).get('htl_ac', {'f': [], 'hl': []})
+        g_nalrp = _nalrp_gains(htl_data['hl'], htl_data['f'], freqs)
+
+        # Maximum gain at knee point
+        gmax = [g_nalrp[i] + (c_slope - 1) * (l_kneepoint[i] - l_target[i])
+                for i in range(num_bands)]
+
+        result['compression'][side] = {
+            'gain': list(gmax),
+            'l_kneepoint': list(l_kneepoint),
+            'c_slope': c_slope,
+        }
+
+        # Build gain table
+        gain_table = []
+        for lev_idx in range(num_levels):
+            row = []
+            for band in range(num_bands):
+                lev = levels[lev_idx]
+                if lev < l_kneepoint[band]:
+                    gain = gmax[band]
+                else:
+                    gain = gmax[band] + (lev - l_kneepoint[band]) * (c_slope - 1)
+                row.append(gain)
+            gain_table.append(row)
+
+        result[side] = gain_table
 
     return result
 
