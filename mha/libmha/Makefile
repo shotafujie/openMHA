@@ -1,6 +1,6 @@
 # This file is part of the HörTech Open Master Hearing Aid (openMHA)
 # Copyright © 2013 2014 2016 2017 2018 2019 2020 2021 HörTech gGmbH
-# Copyright © 2024 Hörzentrum Oldenburg gGmbH
+# Copyright © 2024 2026 Hörzentrum Oldenburg gGmbH
 #
 # openMHA is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -18,6 +18,12 @@ include ../../config.mk
 include ../../magic.mk
 
 libmha = lib$(MHATOOLBOX_NAME)
+
+# For historical reasons, FFTW2 objects are compiled into libmha/libopenmha.
+# To link against the system's FFTW2 shared library instead, set environment
+# variable USE_SYSTEM_FFTW2 to yes.
+USE_SYSTEM_FFTW2 ?= no
+
 
 TARGETS=$(libmha)$(DYNAMIC_LIB_EXT)
 
@@ -72,12 +78,16 @@ endif # end of (if linux else not linux)
 
 
 
+ifeq "$(USE_SYSTEM_FFTW2)" "yes"
+LDLIBS += -lsfftw -lsrfftw
+else
 FFTW_LIB = ../../external_libs/$(PLATFORM_CC)/lib/libsfftw.a
 RFFTW_LIB = ../../external_libs/$(PLATFORM_CC)/lib/libsrfftw.a
 MHA_FFTW_OBJECTS = $(shell ar t $(FFTW_LIB) | grep -v _.SYMDEF)
 MHA_RFFTW_OBJECTS = $(shell ar t $(RFFTW_LIB) | grep -v _.SYMDEF)
 
 OBJECTS += $(MHA_FFTW_OBJECTS) $(MHA_RFFTW_OBJECTS)
+endif
 
 $(BUILD_DIR)/$(libmha)$(DYNAMIC_LIB_EXT): $(OBJECTS:%.o=$(BUILD_DIR)/%.o)
 
@@ -85,11 +95,13 @@ ifeq "MinGW" "$(PLATFORM)"
 LDLIBS += -Wl,--out-implib,$(basename $@).a
 endif
 
+ifneq "$(USE_SYSTEM_FFTW2)" "yes"
 $(MHA_FFTW_OBJECTS:%.o=$(BUILD_DIR)/%.o): $(FFTW_LIB) $(BUILD_DIR)/.directory
 	ar x $< $(notdir $@) && mv $(notdir $@) $@
 
 $(MHA_RFFTW_OBJECTS:%.o=$(BUILD_DIR)/%.o): $(RFFTW_LIB) $(BUILD_DIR)/.directory
 	ar x $< $(notdir $@) && mv $(notdir $@) $@
+endif
 
 ifeq "$(PLATFORM)" "linux"
 FIND_LIBOPENMHA_RPATH = -Wl,-rpath=./$(BUILD_DIR)
@@ -101,7 +113,7 @@ endif
 # an explicit dependency.
 $(BUILD_DIR)/unit-test-runner: $(unit_tests_test_files) $(BUILD_DIR)/$(libmha)$(DYNAMIC_LIB_EXT)
 	@echo dependencies = $^
-	$(CXX) $(CXXFLAGS) --coverage -o $@ $(unit_tests_test_files) $(LDFLAGS) $(LDLIBS) $(BUILD_DIR)/$(libmha)$(DYNAMIC_LIB_EXT) -lgmock_main -lgmock -lgtest -lpthread
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) --coverage -o $@ $(unit_tests_test_files) $(LDFLAGS) $(LDLIBS) $(BUILD_DIR)/$(libmha)$(DYNAMIC_LIB_EXT) -lgmock_main -lgmock -lgtest -lpthread
 
 # Local Variables:
 # coding: utf-8-unix

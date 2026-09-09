@@ -9,7 +9,7 @@
 
 DOI:[10.5281/zenodo.4569575](https://doi.org/10.5281/zenodo.4569575)
 
-Current release: 4.18.0 (2024-05-16)
+Current release: 4.18.1 (2026-06-06)
 
 ## Content of the openMHA
 
@@ -50,7 +50,7 @@ list of publications at the end of this README.
 ## Installation
 
 For installation instructions for Linux, Windows and macOS, please refer
-to the instructions in file INSTALLATION.md.
+to the instructions in file [INSTALLATION.md](INSTALLATION.md).
 
 We also provide SD card images for Beaglebone Black with the Cape4all
 sound card here: http://mahalia.openmha.org/.
@@ -59,9 +59,6 @@ sound card here: http://mahalia.openmha.org/.
 
 Please follow our getting-started guide:
 http://www.openmha.org/docs/openMHA_starting_guide.pdf
-
-Our user forum is found here:
-https://forum.openmha.org/
 
 ## Known issues
 ### macOS
@@ -73,12 +70,12 @@ It is possible to fit a dynamic compressor in openMHA with the
 commercial hearing aid prescription rules *DSLmio 5* and *NAL NL2*.
 
 The software libraries implementing these rules must be obtained from
-their respective authors.  The openMHA team provides wrappers around
-these libraries which for legal reasons are not distributed as part of
-openMHA but as optional extras.
+their respective vendors.  The openMHA team provides wrappers around
+these libraries. These wrappers are not part of openMHA but are
+optional extras.
 
-Please refer to files README_NALNL2.md and README_DSLmio5.md for more
-information.
+Please refer to files [README_NALNL2.md](README_NALNL2.md) and 
+[README_DSLmio5.md](README_DSLmio5.md) for more information.
 
 ## Reference algorithms
 
@@ -112,8 +109,8 @@ Available methods:
 * Bilateral adaptive differential microphones
 * Delay-and-subtract beamformer
 
-For references and more information see file README.md in the
- *reference_algorithms* directory.
+For references and more information see file [README.md](reference_algorithms/README.md)
+in the *reference_algorithms* directory.
 
 ## References for individual algorithms
 

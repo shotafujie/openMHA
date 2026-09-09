@@ -1,6 +1,6 @@
 # This file is part of the HörTech Open Master Hearing Aid (openMHA)
 # Copyright © 2016 2017 2018 2019 2021 HörTech gGmbH
-# Copyright © 2022 2024 Hörzentrum Oldenburg gGmbH
+# Copyright © 2022 2024 2026 Hörzentrum Oldenburg gGmbH
 #
 # openMHA is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -19,7 +19,23 @@ include ../magic.mk
 
 EXTERNAL_LIBS=$(realpath .)
 
-TARGETS = libxdf.is_installed libemx.is_installed fftw.is_installed network-asio.is_installed
+# network-asio is the asynchronous networking library available at
+# https://github.com/chriskohlhoff/asio. Default is to clone it from github.
+# If already available on the system, set to yes and set include dir:
+USE_SYSTEM_NETWORKASIO ?= no
+SYSTEM_NETWORKASIO_INCLUDE_DIR ?= /usr/include
+
+# For historical reasons, FFTW2 objects are compiled into libmha/libopenmha.
+# To link against the system's FFTW2 shared library instead, set environment
+# variable USE_SYSTEM_FFTW2 to yes.
+USE_SYSTEM_FFTW2 ?= no
+
+
+TARGETS = libxdf.is_installed libemx.is_installed network-asio.is_installed
+
+ifneq "$(USE_SYSTEM_FFTW2)" "yes"
+TARGETS += fftw.is_installed
+endif
 
 include ../rules.mk
 
@@ -55,6 +71,7 @@ ifeq "$(ARCH)" "armhf"
 CROSS_COMPILE=--build=`./config.guess` --host=arm-linux-gnueabi 
 endif
 
+ifneq "$(USE_SYSTEM_FFTW2)" "yes"
 # Build fftw-2
 $(BUILD_DIR)/fftw.is_installed: $(BUILD_DIR)/fftw.is_configured
 	cd fftw-2.1.5/. && $(MAKE) -j 1 install
@@ -89,6 +106,7 @@ $(BUILD_DIR)/fftw.is_configured: $(BUILD_DIR)/.directory
 	sleep 0.01 && touch fftw-2.1.5/Makefile.in
 	cd fftw-2.1.5/. && ./configure --enable-static --disable-shared --prefix="$(EXTERNAL_LIBS)/$(BUILD_DIR)" --bindir="$(EXTERNAL_LIBS)/$(BUILD_DIR)"/bin --libdir="$(EXTERNAL_LIBS)/$(BUILD_DIR)"/lib --includedir="$(EXTERNAL_LIBS)/$(BUILD_DIR)"/include  --enable-float --enable-type-prefix --disable-fast-install --disable-fortran $(CROSS_COMPILE)
 	cd "$(EXTERNAL_LIBS)" && touch $@
+endif
 
 
 googlemock: $(BUILD_DIR)/googlemock.is_installed
@@ -118,21 +136,32 @@ googletest/WORKSPACE:
 
 network-asio: $(BUILD_DIR)/network-asio.is_installed
 
+ifeq "$(USE_SYSTEM_NETWORKASIO)" "yes"
+$(BUILD_DIR)/network-asio.is_installed: $(BUILD_DIR)/include/.directory
+	test -d "$(SYSTEM_NETWORKASIO_INCLUDE_DIR)/asio"
+	test -f "$(SYSTEM_NETWORKASIO_INCLUDE_DIR)/asio.hpp"
+	cp -a "$(SYSTEM_NETWORKASIO_INCLUDE_DIR)/asio" $(BUILD_DIR)/include/
+	cp -a "$(SYSTEM_NETWORKASIO_INCLUDE_DIR)/asio.hpp" $(BUILD_DIR)/include/
+	touch $@
+else
 $(BUILD_DIR)/network-asio.is_installed: network-asio/.gitignore \
 	$(BUILD_DIR)/include/.directory
-	cp -a network-asio/asio/include/asio* $(BUILD_DIR)/include/
+	cp -a network-asio/include/asio* $(BUILD_DIR)/include/
 	touch $@
 
 network-asio/.gitignore:
 	git clone https://github.com/chriskohlhoff/asio network-asio
-	cd network-asio && git checkout asio-1-20-0 # release 1.20.0
+	cd network-asio && git checkout asio-1-38-0 # release 1.38.0
+endif
 
 libemx: $(BUILD_DIR)/libemx.is_installed
 
 $(BUILD_DIR)/libemx.is_installed: $(BUILD_DIR)/include/.directory $(BUILD_DIR)/lib/.directory
 	cd libemx/. && $(MAKE) -j 1
 	cp libemx/$(BUILD_DIR)/libemx.a $(BUILD_DIR)/lib/libemx.a
-	cp libemx/src/*.h* $(BUILD_DIR)/include/.
+	cp -v libemx/src/*.h* $(BUILD_DIR)/include/.
+	# Avoid name clash for the types.h header file.
+	cp -v libemx/src/types.h $(BUILD_DIR)/include/libemx_types.h
 	touch $@
 
 libxdf: $(BUILD_DIR)/libxdf.is_installed 

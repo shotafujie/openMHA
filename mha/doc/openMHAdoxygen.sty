@@ -1,7 +1,7 @@
 %%% This file is part of the Open HörTech Master Hearing Aid (openMHA)
 %%% Copyright © 2005 2006 2007 2008 2010 2011 2012 2013 2017 2018 HörTech gGmbH
 %%% Copyright © 2019 2020 2021 HörTech gGmbH
-%%% Copyright © 2021 2022 Hörzentrum Oldenburg gGmbH
+%%% Copyright © 2021 2022 2024 2026 Hörzentrum Oldenburg gGmbH
 %%%
 %%% openMHA is free software: you can redistribute it and/or modify
 %%% it under the terms of the GNU Affero General Public License as published by
@@ -545,6 +545,16 @@
   \textbf{#1} (\textnormal{#2}\,\pageref{#3})%
 }
 
+% Compatibility with newer doxygen LaTeX output that may emit section links.
+\newcommand{\doxysectlink}[3]{%
+  \mbox{\hyperlink{#1}{#2}}%
+}
+
+% Used when hyperlinks are turned off
+\newcommand{\doxysectref}[4]{%
+  \textbf{#1} (\textnormal{#2}\,\pageref{#3})%
+}
+
 % Used to link to a table when hyperlinks are turned on
 \newcommand{\doxytablelink}[2]{%
   \ref{#1}%
@@ -593,6 +603,12 @@
                                      {-3.25ex\@plus -1ex \@minus -.2ex}%
                                      {1.5ex \@plus .2ex}%
                                      {\raggedright\normalfont\normalsize\bfseries}}
+% Compatibility with newer doxygen LaTeX output (>=1.9), which emits
+% \doxysubsubsubsection in generated .tex files.
+% Map this level to paragraph to avoid introducing a custom counter.
+\newcommand\doxysubsubsubsection{\doxyparagraph}
+\newcommand\doxysubsubsubsubsection{\doxysubparagraph}
+\newcommand\doxysubsubsubsubsubsection{\doxysubparagraph}
 \newcommand\doxyparagraph{\@startsection{paragraph}{4}{\z@}%
                                     {3.25ex \@plus1ex \@minus.2ex}%
                                     {-1em}%
@@ -606,6 +622,9 @@
 % Define caption that is also suitable in a table
 \makeatletter
 \def\doxyfigcaption{%
+\refstepcounter{figure}%
+\@dblarg{\@caption{figure}}}
+\def\doxyfigcaptionnolink{%
 \refstepcounter{figure}%
 \@dblarg{\@caption{figure}}}
 \makeatother
@@ -655,9 +674,9 @@
 \rhead[\fancyplain{}{\bfseries\leftmark}]
         {\fancyplain{}{\bfseries\thepage}}
 \rfoot[\fancyplain{}{\bfseries\scriptsize \copyright{} 2005-2021 H\"orTech gGmbH, Oldenburg\\
-                     \bfseries\scriptsize \copyright{} 2021-2024 H\"orzentrum Oldenburg gGmbH }]{}
+                     \bfseries\scriptsize \copyright{} 2021-2026 H\"orzentrum Oldenburg gGmbH }]{}
 \lfoot[]{\fancyplain{}{\bfseries\scriptsize \copyright{} 2005-2021 H\"orTech gGmbH, Oldenburg\\
-                       \bfseries\scriptsize \copyright{} 2021-2024 H\"orzentrum Oldenburg gGmbH }}
+                       \bfseries\scriptsize \copyright{} 2021-2026 H\"orzentrum Oldenburg gGmbH }}
 \cfoot{}
 %
 %
@@ -675,7 +694,7 @@
 
 \newcommand{\figref}[1]{Fig.\ \ref{fig:#1}}
 
-\newcommand{\MHAversion}{4.18.0}
+\newcommand{\MHAversion}{4.18.1}
 \newcommand{\MHAtitle}[1]{
 \begin{titlepage}
 \vspace*{2cm}
@@ -696,7 +715,7 @@
 \vspace*{0.5cm}
 {\small \copyright{} 2005-2021 by H\"orTech gGmbH, Marie-Curie-Str. 2,
   D--26129 Oldenburg, Germany \\
- \small \copyright{} 2021-2024 by H\"orzentrum Oldenburg gGmbH, Marie-Curie-Str. 2,
+ \small \copyright{} 2021-2026 by H\"orzentrum Oldenburg gGmbH, Marie-Curie-Str. 2,
   D--26129 Oldenburg, Germany}\\
 \end{center}
 \end{titlepage}
@@ -724,7 +743,7 @@ H\"{o}rTech gGmbH.
 Copyright \copyright{} 2017 2018 2019 2020 2021
 H\"{o}rTech gGmbH.
 \\
-Copyright \copyright{} 2021 2022 2023 2024
+Copyright \copyright{} 2021 2022 2023 2024 2025 2026
 H\"{o}rzentrum Oldenburg gGmbH.
 
 openMHA is free software: you can redistribute it and/or modify

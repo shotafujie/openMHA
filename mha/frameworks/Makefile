@@ -1,6 +1,6 @@
 # This file is part of the HörTech Open Master Hearing Aid (openMHA)
 # Copyright © 2013 2014 2015 2016 2017 2018 2019 2020 2021 HörTech gGmbH
-# Copyright © 2024 Hörzentrum Oldenburg gGmbH
+# Copyright © 2024 2026 Hörzentrum Oldenburg gGmbH
 #
 # openMHA is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,7 @@ include ../../magic.mk
 # Compile git commit hash into executables.
 CXXFLAGS += $(GITCOMMITHASHCFLAGS)
 
-ifeq "x${BRANCH_NAME}" "xmaster" # If we are in a Jenkins build of branch master
+ifeq "x${GITHUB_EVENT_NAME}" "xrelease" # If we are in a GitHub Actions build for a release
 ifeq "x" "x$(findstring modified,$(GITCOMMITHASH))" # and if git is unmodified,
 # then this is is a relase build, do not output a non-release warning ...
 CXXFLAGS += -DNORELEASE_WARNING='""'
@@ -103,13 +103,13 @@ src/fw_t.java src/MHA.java src/MHAJNI.java src/fw_t_wrap.cxx: src/fw_t.ii
 	swig3.0 -c++ -java src/fw_t.ii
 
 $(BUILD_DIR)/libMHAfw.so: src/mhafw_lib.cpp $(BUILD_DIR)/frameworks_mha_git_commit_hash.o
-	$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) -shared -o $@ -I/usr/lib/jvm/default-java/include/ -I/usr/lib/jvm/default-java/include/linux -fno-strict-aliasing
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) -shared -o $@ -I/usr/lib/jvm/default-java/include/ -I/usr/lib/jvm/default-java/include/linux -fno-strict-aliasing
 
 $(BUILD_DIR)/libMHAjava.so: src/fw_t_wrap.cxx $(BUILD_DIR)/frameworks_mha_git_commit_hash.o $(BUILD_DIR)/libMHAfw.so
-	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/frameworks_mha_git_commit_hash.o -L$(BUILD_DIR) $(LDFLAGS) -lMHAfw $(LDLIBS) -shared -o $@ -I/usr/lib/jvm/default-java/include/ -I/usr/lib/jvm/default-java/include/linux -fno-strict-aliasing 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(BUILD_DIR)/frameworks_mha_git_commit_hash.o -L$(BUILD_DIR) $(LDFLAGS) -lMHAfw $(LDLIBS) -shared -o $@ -I/usr/lib/jvm/default-java/include/ -I/usr/lib/jvm/default-java/include/linux -fno-strict-aliasing
 
 $(BUILD_DIR)/mha_ruby.so: src/mha_ruby.cpp $(BUILD_DIR)/frameworks_mha_git_commit_hash.o $(BUILD_DIR)/libMHAfw.so
-	$(CXX) $(CXXFLAGS) $< $(BUILD_DIR)/frameworks_mha_git_commit_hash.o -L$(BUILD_DIR) $(LDFLAGS) $$(ruby -rrbconfig -e 'C=RbConfig::CONFIG;printf("-I%s -I%s -L%s %s",C["rubyhdrdir"],C["rubyarchhdrdir"],C["libdir"],C["LIBRUBYARG"])') -lMHAfw $(LDLIBS) -shared -o $@  -fno-strict-aliasing 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(BUILD_DIR)/frameworks_mha_git_commit_hash.o -L$(BUILD_DIR) $(LDFLAGS) $$(ruby -rrbconfig -e 'C=RbConfig::CONFIG;printf("-I%s -I%s -L%s %s",C["rubyhdrdir"],C["rubyarchhdrdir"],C["libdir"],C["LIBRUBYARG"])') -lMHAfw $(LDLIBS) -shared -o $@  -fno-strict-aliasing
 
 # Local Variables:
 # compile-command: "make"

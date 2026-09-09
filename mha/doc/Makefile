@@ -1,6 +1,7 @@
 # This file is part of the HörTech Open Master Hearing Aid (openMHA)
-# Copyright © 2002 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 
-# Copyright © 2016 2017 2018 2019 2020 2021 HörTech gGmbH
+# Copyright © 2002 2004 2005 2006 2007 2008 2009 2010 2011 2012 HörTech gGmbH
+# Copyright © 2013 2016 2017 2018 2019 2020 2021 HörTech gGmbH
+# Copyright © 2026 Hörzentrum Oldenburg gGmbH
 #
 # openMHA is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -23,6 +24,7 @@ ifeq (linux,$(PLATFORM))
 endif
 
 MHANAME = openMHA
+PDFLATEX_FLAGS = -file-line-error -interaction=nonstopmode -halt-on-error
 
 all: $(MHANAME)_developer_manual.pdf $(MHANAME)_application_manual.pdf $(MHANAME)_gui_manual.pdf \
      $(MHANAME)_calibration_manual.pdf $(MHANAME)_starting_guide.pdf \
@@ -35,7 +37,7 @@ all: $(MHANAME)_developer_manual.pdf $(MHANAME)_application_manual.pdf $(MHANAME
 
 empty :=
 space := $(empty) $(empty)
-PLUGINDIRS=$(wildcard ../plugins/*/$(PLATFORM_CC)/)
+PLUGINDIRS=$(filter-out ../plugins/example%/$(PLATFORM_CC)/,$(wildcard ../plugins/*/$(PLATFORM_CC)/))
 MHA_PLUGINDIRS=$(subst $(space),;,$(PLUGINDIRS))
 
 # Get plugin names
@@ -55,7 +57,7 @@ $(MHANAME)_developer_manual.pdf: images mhadoc
 	cp -lv --remove-destination optparams.sty mhadoc/latex
 	cp -lv --remove-destination flowcharts/fmt_png/*.png mhadoc/latex
 	cp -lv --remove-destination flowcharts/fmt_pdf/*.pdf mhadoc/latex
-	$(MAKE) -C mhadoc/latex refman.pdf
+	$(MAKE) -C mhadoc/latex refman.pdf LATEX_CMD="pdflatex $(PDFLATEX_FLAGS)"
 	cp -lv --remove-destination mhadoc/latex/refman.pdf $@
 
 $(MHANAME)_application_manual.pdf: user_manual/$(MHANAME)_application_manual.pdf
@@ -115,11 +117,11 @@ plugins: $(MHADISTS:=_plugins.pdf)
 	rm -f temp$@
 
 %.pdf: %.tex images
-	TEXINPUTS=flowcharts/fmt_png::. pdflatex -file-line-error $<
+	TEXINPUTS=flowcharts/fmt_png::. pdflatex $(PDFLATEX_FLAGS) $<
 	-bibtex $*
-	TEXINPUTS=flowcharts/fmt_png::. pdflatex -file-line-error $<
+	TEXINPUTS=flowcharts/fmt_png::. pdflatex $(PDFLATEX_FLAGS) $<
 	makeindex $*
-	TEXINPUTS=flowcharts/fmt_png::. pdflatex -file-line-error $<
+	TEXINPUTS=flowcharts/fmt_png::. pdflatex $(PDFLATEX_FLAGS) $<
 	rm -f $*.{aux,dvi,log,toc,out,idx,ilg}
 
 clean:
