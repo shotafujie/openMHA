@@ -75,6 +75,8 @@ debian_*/
 
 # Common test installation artifacts
 install*/
+/.local/
+/examples/cpp-embedding/build/
 
 # debian packages
 mha/tools/packaging/deb

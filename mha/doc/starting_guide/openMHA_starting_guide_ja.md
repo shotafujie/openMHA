@@ -3,8 +3,10 @@
 > この文書は [openMHA_starting_guide.tex](openMHA_starting_guide.tex) の日本語訳です。
 > [English version (PDF)](https://www.openmha.org/docs/openMHA_starting_guide.pdf)
 
+翻訳対応：openMHA 4.18.1（上流 `0b9f087e`）．原文はMATLAB／OctaveのGUI操作も含みます．C++だけで進める場合は [C++開発ガイド](../../../docs/CPP_DEVELOPMENT_ja.md) を参照してください．
+
 Copyright &copy; 2005-2021 HörTech gGmbH, Oldenburg  
-Copyright &copy; 2021-2024 Hörzentrum Oldenburg gGmbH
+Copyright &copy; 2021-2026 Hörzentrum Oldenburg gGmbH
 
 ---
 
@@ -38,8 +40,7 @@ openMHA は4つの主要コンポーネントに分けることができます:
 - **オーディオ入出力モジュール**（IO）
 - **openMHA ツールボックスライブラリ**（libopenmha）
 
-![openMHA の階層構造](../images/structure_openmha.pdf)
-*図: open Master Hearing Aid の階層構造*
+図「open Master Hearing Aidの階層構造」は[原文PDF](https://www.openmha.org/docs/openMHA_starting_guide.pdf)を参照してください．図のPDFはドキュメント生成時の成果物で，このソースチェックアウトには含まれません．
 
 **MHA コマンドラインアプリケーション** はプラグインホストとして動作します。信号処理プラグインとオーディオ入出力モジュール（IO）をロードできます。さらに、コマンドラインの設定インターフェースと TCP/IP ベースの設定インターフェースを提供します。異なる IO モジュールが存在します: リアルタイム信号処理には、一般的に openMHA の *MHAIOJack* モジュールが使用され、Jack Audio Connection Kit（JACK）へのインターフェースを提供します。*MHAIOFile* モジュールはオーディオファイルアクセスを、*MHAIOTCP* は TCP/IP ベースの信号交換を提供します。
 
@@ -62,19 +63,20 @@ openMHA プラットフォームは、プラグインに実装されたアルゴ
 **以下のソフトウェアをインストールしてください:**
 
 - **オペレーティングシステム**
-  - **Linux:** Ubuntu 20.04 以降、64ビット
-  - **Windows:** Windows 10、64ビット
-  - **macOS:** macOS Monterey（バージョン12）以降
+  - **Linux:** Ubuntu 22.04以降
+  - **Windows:** Windows 11
+  - **macOS:** Homebrew導入済みのmacOS
 
 - **openMHA**  
   https://github.com/HoerTech-gGmbH/openMHA/blob/master/INSTALLATION.md
 
-- **Octave または Matlab**
+- **OctaveとOpenJDK，またはMATLAB**
   - **Octave:**
     - **Linux:**  
-      `sudo apt install octave-signal`
+      `sudo apt install octave-signal default-jre-headless`
     - **Windows:**  
       https://www.gnu.org/software/octave/download.html
+      OpenJDKは，例えば https://adoptium.net/ のTemurinを導入します．
     - **macOS:**  
       Homebrew で openMHA をインストールする際に推奨依存関係として自動的にインストールされます。
   - **Matlab:**  
@@ -90,14 +92,14 @@ openMHA プラットフォームは、プラグインに実装されたアルゴ
 
 ### 2.2 最新バージョンへのアップデート
 
-このガイドは openMHA バージョン 4.18.0 とともにリリースされました。既に openMHA をシステムにインストールしている場合は、最新バージョンを使用していることを確認してください。
+このガイドはopenMHA 4.18.1に対応しています．インストール済みの場合は，最新版を使用していることを確認してください．
 
 - **Windows**  
-  最新の **Windows インストーラー** を使用してインストール手順を繰り返してください。  
+  GitHubの最新リリースから，使用するシステム向けのWindowsリリースファイルを取得し，インストール手順を繰り返してください．
   インストール手順: https://github.com/HoerTech-gGmbH/openMHA/blob/master/INSTALLATION.md
 
 - **macOS**  
-  openMHA 4.17.0 以前からアップグレードする場合は、まず古いバージョンをアンインストールする必要があります。openMHA 4.18.0 以降からアップグレードする場合は、Homebrew で更新できます:
+  ターミナルで次のコマンドを実行し，Homebrew経由で更新します．
   ```
   brew update
   brew upgrade
@@ -105,12 +107,7 @@ openMHA プラットフォームは、プラグインに実装されたアルゴ
   インストール手順: https://github.com/HoerTech-gGmbH/openMHA/blob/master/INSTALLATION.md
 
 - **Linux**  
-  Linux では、インストールされているすべての openMHA パッケージを更新する必要があります。新しいリリースが利用可能になったら、以下を実行してください:
-  ```
-  sudo apt-get update
-  sudo apt-get install openmha
-  ```
-  これにより、インストールされているすべての openmha パッケージが最新バージョンに更新されます。
+  GitHubの最新リリースから，使用するシステム向けのLinuxリリースファイルを取得し，[インストール手順](../../../INSTALLATION_ja.md)を繰り返してください．
 
 ### 2.3 システム固有の設定
 

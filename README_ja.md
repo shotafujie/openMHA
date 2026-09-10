@@ -7,7 +7,9 @@
 
 DOI: [10.5281/zenodo.4569575](https://doi.org/10.5281/zenodo.4569575)
 
-現在のリリース: 4.18.0 (2024-05-16)
+現在のリリース: 4.18.1 (2026-06-06)
+
+翻訳対応：上流 `0b9f087e`．このフォークでのビルド・組み込み手順は [C++開発ガイド](docs/CPP_DEVELOPMENT_ja.md) を参照してください．
 
 **[English version is here / 英語版はこちら](README.md)**
 
@@ -67,9 +69,6 @@ http://mahalia.openmha.org/
 入門ガイドをご覧ください：
 http://www.openmha.org/docs/openMHA_starting_guide.pdf
 
-ユーザーフォーラムはこちら：
-https://forum.openmha.org/
-
 ## 既知の問題
 
 ### macOS
@@ -79,9 +78,9 @@ https://forum.openmha.org/
 
 openMHAでは、商用補聴器処方ルール *DSLmio 5* および *NAL NL2* を使用してダイナミックコンプレッサのフィッティングを行うことができます。
 
-これらのルールを実装するソフトウェアライブラリは、それぞれの提供元から入手する必要があります。openMHAチームはこれらのライブラリのラッパーを提供していますが、法的な理由からopenMHAの一部としてではなく、オプションの追加機能として別途配布しています。
+これらのルールを実装するソフトウェアライブラリは，それぞれの提供元から入手する必要があります．openMHAチームはこれらのライブラリのラッパーを提供しています．ラッパーはopenMHA本体には含まれず，オプションの追加機能です．
 
-詳細については [README_NALNL2.md](README_NALNL2.md) および [README_DSLmio5.md](README_DSLmio5.md) を参照してください。
+詳細については [README_NALNL2_ja.md](README_NALNL2_ja.md) および [README_DSLmio5_ja.md](README_DSLmio5_ja.md) を参照してください．
 
 ## リファレンスアルゴリズム
 

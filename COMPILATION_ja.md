@@ -1,345 +1,203 @@
-# 開発者向けコンパイル手順
+# 開発者向けビルド手順
 
-Windows、macOS、LinuxでのコンパイルバイナリパッケージのインストールについてはINSTALLATION.mdを参照してください。openMHA自体を変更したい場合を除き、自分でopenMHAをコンパイルする必要はありません。
+[英語原文](COMPILATION.md)／対応：openMHA 4.18.1（上流 `0b9f087e`）．
 
-このガイドでは、開発者向けにオリジナルソースコードからopenMHAをコンパイルする方法を説明します。
+この文書は原文の翻訳です．このフォークでのC++中心の検証手順・制限は [C++開発ガイド](docs/CPP_DEVELOPMENT_ja.md) に記載します．
 
-**[English version is here / 英語版はこちら](COMPILATION.md)**
+ビルド済みパッケージのインストールは [INSTALLATION_ja.md](INSTALLATION_ja.md) を参照してください．openMHA自体を変更しない場合，自分でビルドする必要はありません．以下は開発者がソースコードからビルドするための手順です．
 
-**[READMEに戻る](README_ja.md)**
+## I. Linuxでのビルド
 
----
+### 前提条件
 
-## 目次
+64ビット版Ubuntu 22.04以降と，次のパッケージが必要です．
 
-- [I. Linuxでのソースからのコンパイル](#i-linuxでのソースからのコンパイル)
-- [II. macOSでのソースからのコンパイル](#ii-macosでのソースからのコンパイル)
-- [III. 64ビットWindowsでのコンパイル（上級者向け）](#iii-64ビットwindowsでのコンパイル上級者向け)
-- [IV. Linuxでのドキュメント再生成](#iv-linuxでのドキュメント再生成)
+- g++，make
+- libsndfile1-dev，libjack-jackd2-dev，jackd2，portaudio19-dev
+- liblo-dev，liblsl，libeigen3-dev，libtorch-dev
 
----
+### ビルドとインストール
 
-## I. Linuxでのソースからのコンパイル
-
-### Linux前提条件
-
-64ビット版のUbuntu 20.04以降、またはDebian Busterを実行しているBeaglebone Black。
-
-以下のソフトウェアパッケージがインストールされている必要があります：
-- g++（最小バージョン：g++ 7）
-- make
-- libsndfile1-dev
-- libjack-jackd2-dev
-- jackd2
-- portaudio19-dev
-- liblo-dev
-- liblsl
-- libeigen3-dev
-- libtorch-dev
-
-### Linuxでのコンパイル
-
-GitHubからopenMHAをクローンし、ターミナルで以下を入力してコンパイルします：
-
-```bash
+```sh
 git clone https://github.com/HoerTech-gGmbH/openMHA
 cd openMHA
-./configure && make
+./configure --prefix=/usr/local && make
+sudo make install
 ```
 
-### Linuxでの自己コンパイルしたopenMHAのインストール
+`make install` は `./configure` に指定したprefixへインストールします．次で，プラグイン未ロードの標準設定が表示されることを確認します．
 
-ソースコードと一緒に非常にシンプルなインストールルーチンが提供されています。関連するバイナリとライブラリを収集するには以下を実行します：
-
-```bash
-make install
+```sh
+mha '?' cmd=quit
 ```
 
-make変数PREFIXを設定して、希望のインストール場所を指定できます。デフォルトのインストール場所は「.」（現在のディレクトリ）です。
+訳注：原文の `?` は，zshなどでファイル名展開されないよう引用しています．以下も同様です．
 
-その後、openMHAインストールディレクトリをライブラリのシステム検索パスに追加する必要があります：
+### テスト
 
-```bash
-export LD_LIBRARY_PATH=<YOUR-MHA-DIRECTORY>/lib:$LD_LIBRARY_PATH
-```
+Gitクローンのディレクトリ内で実行します．単体テストは次のとおりです．
 
-また、実行ファイルの検索パスにも追加します：
-
-```bash
-export PATH=<YOUR-MHA-DIRECTORY>/bin:$PATH
-```
-
-上記の2つの設定の代わりに、openMHAのbinディレクトリにあるthismha.shスクリプトをソースすることで、現在のシェルに対してこれらの変数を正しく設定できます：
-
-```bash
-source <YOUR-MHA-DIRECTORY>/bin/thismha.sh
-```
-
-これでopenMHAコマンドラインアプリケーションを呼び出せます。以下のコマンドで簡単なテストを行います：
-
-```bash
-mha ? cmd=quit
-```
-
-これにより、プラグインがロードされていないopenMHAのデフォルト設定が表示されます。
-
-### Linuxでの自己コンパイルしたopenMHAのテスト
-
-#### ユニットテストによるテスト
-
-```bash
+```sh
 sudo apt install libboost-dev cmake
 make unit-tests
 ```
 
-#### システムテストの実行
+システムテストにはOctaveなどを追加します．
 
-Ubuntu 20.04を使用している場合、`/usr/share/octave/5.2.0/m/java/java.opts`ファイルを編集または作成し、以下の行が含まれていることを確認してください：
-
-```
--Djdk.lang.processReaperUseDefaultStackSize=true
-```
-
-これはUbuntu 20.04のOctaveパッケージのエラーを回避するためです。詳細は https://savannah.gnu.org/bugs/?59310 を参照してください。その後：
-
-```bash
-sudo make install octave-signal default-jre-headless
+```sh
+sudo apt install octave-signal default-jre-headless
 ./configure
 make test
 ```
 
-Octaveをインストールする代わりに、Signal Processing Toolbox付きのMatlabを使用できます。
+訳注：原文の `sudo make install octave-signal default-jre-headless` はパッケージ導入コマンドとして誤記と考えられるため，上では `sudo apt install` に修正しています．
 
-これらのテストには、openMHAソースコードが変更されてgitにチェックインされていない場合、または異なるコンポーネントが異なるgitコミットからコンパイルされた場合に失敗する再現性チェックが含まれています。
+Octaveの代わりにSignal Processing Toolboxを備えたMATLABを使用できます．システムテストには再現性の確認も含まれます．ソースを変更してGitにコミットしていない場合や，異なるコミットからビルドしたコンポーネントを混在させた場合は失敗します．
 
----
+## II. macOSでのビルド
 
-## II. macOSでのソースからのコンパイル
+### 前提条件
 
-### macOS前提条件
+Xcode Command Line ToolsとHomebrewが必要です．原文の依存パッケージは次のとおりです．
 
-- macOS 14.4（他のバージョンでも動作する可能性があります）
-- 以下のパッケージがインストールされたHomebrew：
-  - `brew install jack`
-  - `brew install libsndfile pkgconfig portaudio liblo eigen pytorch`
-  - `brew install labstreaminglayer/tap/lsl`
-- XCodeコマンドラインツール
-
-### macOSでのコンパイル
-
-GitHubからopenMHAをクローンし、ターミナルで以下を入力してコンパイルします：
-
-```bash
-git clone https://github.com/HoerTech-gGmbH/openMHA
-cd openMHA
-./configure && make
+```sh
+brew install jack
+brew install libsndfile pkgconfig portaudio liblo eigen pytorch
+brew install labstreaminglayer/tap/lsl
 ```
 
-### macOSでの自己コンパイルしたopenMHAのインストール
+### ビルドとインストール
 
-ソースコードと一緒に非常にシンプルなインストールルーチンが提供されています。関連するバイナリとライブラリを収集するには以下を実行します：
-
-```bash
+```sh
+git clone https://github.com/HoerTech-gGmbH/openMHA
+cd openMHA
+./configure --prefix=/usr/local && make
 make install
 ```
 
-make変数PREFIXを設定して、希望のインストール場所を指定できます。デフォルトのインストール場所は「.」（現在のディレクトリ）です。
+prefixは任意のインストール先へ変更できます．インストール先のライブラリと実行ファイルを検索できるよう設定します．`<YOUR-PREFIX>` は実際のprefixに置き換えてください．
 
-その後、openMHAライブラリインストールディレクトリをopenMHAのライブラリ検索パスに追加する必要があります：
-
-```bash
-export MHA_LIBRARY_PATH=<YOUR-MHA-DIRECTORY>/lib
+```sh
+export MHA_LIBRARY_PATH=<YOUR-PREFIX>/lib
+export PATH=<YOUR-PREFIX>/bin:$PATH
+mha '?' cmd=quit
 ```
 
-また、実行ファイルの検索パスにも追加します：
+プラグイン未ロードの標準設定が表示されれば，コマンドラインアプリが起動しています．
 
-```bash
-export PATH=<YOUR-MHA-DIRECTORY>/bin:$PATH
-```
+### 単体テスト
 
-上記の2つの設定の代わりに、openMHAのbinディレクトリにあるthismha.shスクリプトをソースすることで、現在のシェルに対してこれらの変数を正しく設定できます：
+追加パッケージを導入し，Gitクローンのディレクトリ内で実行します．
 
-```bash
-source <YOUR-MHA-DIRECTORY>/bin/thismha.sh
-```
-
-これでopenMHAコマンドラインアプリケーションを呼び出せます。以下のコマンドで簡単なテストを行います：
-
-```bash
-mha ? cmd=quit
-```
-
-これにより、プラグインがロードされていないopenMHAのデフォルト設定が表示されます。
-
-### macOSでの自己コンパイルしたopenMHAのテスト
-
-#### ユニットテストによるテスト
-
-以下の追加Homebrewパッケージをインストールします：
-- brew install boost
-- brew install cmake
-
-その後：
-
-```bash
+```sh
+brew install boost cmake
 make unit-tests
 ```
 
-#### システムテストの実行
+### システムテスト
 
-以下の追加Homebrewパッケージをインストールします：
-- brew install openjdk
-- brew install octave
-
-Octave内で、Octaveパッケージ「control」と「signal」をインストールします。例：
-
+```sh
+brew install openjdk octave
 ```
+
+Octave内でcontrolとsignalパッケージをインストールします．この処理は出力が少ないまま長時間かかる場合があります．完了まで待ってください．
+
+```matlab
 pkg install -forge control signal
 ```
 
-（上記は出力がほとんどなく長時間かかります。完了するまで待ってください。）
+Signal Processing Toolboxを備えたMATLABでも代用できます．その後，シェルでGitクローンのディレクトリに移動して実行します．
 
-代替として、Signal Processing Toolbox付きのMatlabを使用できます。
-
-その後、シェルでopenMHAディレクトリに移動し：
-
-```bash
-./configure
+```sh
 make test
 ```
 
-これらのテストには、openMHAソースコードが変更されてgitにチェックインされていない場合、または異なるコンポーネントが異なるgitコミットからコンパイルされた場合に失敗する再現性チェックが含まれています。
+再現性確認が含まれるため，未コミットのソース変更や，異なるコミットでビルドしたコンポーネントの混在で失敗する場合があります．
 
----
+## III. 64ビットWindowsでのビルド（上級者向け）
 
-## III. 64ビットWindowsでのコンパイル（上級者向け）
+### 前提条件と準備
 
-### Windows前提条件
+[MSYS2公式サイト](https://www.msys2.org/)から `msys2-x86_64-公開日.exe`（公開日はyyyymmdd形式）を取得してインストールします．旧版があり更新に失敗する場合は，Windowsのアプリの追加と削除から旧版を削除して最新版を導入してください．
 
-- MSYS2ホームページ https://www.msys2.org/ から直接 **MSYS2インストーラ** を取得
-  - 64ビットWindows用のインストーラはmsys2-x86_64-*releasedate*.exeという名前です。*リリース日はyyyymmdd形式*
-- http://jackaudio.org からJack Audio Connection Kitを取得（Windows用64ビットインストーラを使用）
-- 両方のインストーラを実行
-- これらのツールの古いバージョンがインストールされていてアップグレードが失敗した場合、Windowsのプログラムの追加と削除で古いバージョンをアンインストールし、最新バージョンをインストールしてください
+以下はx64用です．すべてのシェルコマンドをMSYS2 UCRT64で実行します．ARM向けではucrt64をclangarm64へ置き換えます．
 
-### Windows準備
+スタートメニューからMSYS2 UCRT64を開きます．
 
-スタートメニューから **MSYS2 MinGW 64-bit** を実行します（インストール完了後に自動的に開かなかった場合）。ターミナルで、以下を使用してベースパッケージを更新します：
-
-```bash
+```sh
 pacman -Syu
 ```
 
-プロンプトが表示されたらターミナルを閉じます。
+要求されたらターミナルを閉じ，再度MSYS2 UCRT64を開いて実行します．
 
-スタートメニューから **MSYS2 MinGW 64-bit** ターミナルを再起動し、以下を入力します：
-
-```bash
+```sh
 pacman -Su
+pacman -S dos2unix git make openbsd-netcat tar unzip wget zip mingw-w64-ucrt-x86_64-boost mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-libsndfile mingw-w64-ucrt-x86_64-jack2 mingw-w64-ucrt-x86_64-nsis mingw-w64-ucrt-x86_64-eigen3 mingw-w64-ucrt-x86_64-curl mingw-w64-ucrt-x86_64-liblo mingw-w64-ucrt-x86_64-portaudio mingw-w64-ucrt-x86_64-7zip mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+cp /ucrt64/lib/libjack64.dll.a /ucrt64/lib/libjack.dll.a
 ```
 
-openMHAビルド依存関係をインストールします：
+必要なliblslのMinGW版をビルドしてインストールします．
 
-```bash
-pacman -S msys/git mingw64/mingw-w64-x86_64-gcc msys/make tar
-pacman -S mingw64/mingw-w64-x86_64-boost openbsd-netcat
-pacman -S mingw-w64-x86_64-libsndfile mingw-w64-x86_64-portaudio
-pacman -S mingw64/mingw-w64-x86_64-nsis mingw-w64-x86_64-eigen3 msys/wget
-pacman -S msys/unzip msys/zip dos2unix mingw64/mingw-w64-x86_64-curl
-pacman -S mingw-w64-x86_64-liblo
+```sh
+git clone -b main https://github.com/sccn/liblsl
+mkdir -p liblsl/build
+prefix=/ucrt64
+cmake -S liblsl -B liblsl/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" -DLSL_UNITTESTS=ON -DLSL_OPTIMIZATIONS=OFF -G Ninja
+cmake --build liblsl/build --target install --config Release -j --verbose
 ```
 
-Jack for Windowsの開発リソースをMSYS2 MinGW64ツールチェーンが見つけられるディレクトリにコピーします（プロセスでインポートライブラリの名前を変更）：
+### ビルドと起動
 
-```bash
-cp -rv /c/Program*Files/Jack2/include/* /mingw64/include/
-cp /c/Program*Files/Jack2/lib/libjack64.dll.a /mingw64/lib/libjack.dll.a
-```
+MSYS2 UCRT64のbashで実行します．ビルドには時間がかかる場合があります．
 
-openMHAにはliblslが必要です。MinGWバージョンをインストールします：
-
-```bash
-wget https://github.com/HoerTech-gGmbH/liblsl/releases/download/v1.14.0-htch/liblsl-1.14.0-MinGW64.zip
-unzip -d /mingw64 liblsl-1.14.0-MinGW64.zip
-rm liblsl-1.14.0-MinGW64.zip
-```
-
-### Windowsコンパイル
-
-Windowsスタートメニューからにnv64 bashシェルを起動します。GitHubからopenMHAをクローンし、ターミナルで以下を入力してコンパイルします：
-
-```bash
+```sh
 git clone https://github.com/HoerTech-gGmbH/openMHA
 cd openMHA
-./configure && make install
+./configure --prefix=/ucrt64 && make install
+mha '?' mhalib=identity cmd=quit
 ```
 
-コンパイルには時間がかかる場合があります。
+自分でビルドしたWindows版は，MSYS2 UCRT64のターミナルから起動してください．
 
-Windowsで自己コンパイルしたopenMHAを起動するには：
-1. MSYS2ターミナルでMinGW-64 bashシェルを起動
-2. openMHA/binディレクトリに移動
-3. 以下を入力してmha実行をテスト：
-   ```bash
-   ./mha.exe ? cmd=quit
-   ```
+### テストと既知の問題
 
-この手順に従わないと、MHAが必要なすべてのDLLを見つけられない場合があります。
+Gitクローンのディレクトリ内のMSYS2 UCRT64シェルで実行します．
 
-### Windowsでの自己コンパイルしたopenMHAのテスト
+- lsl2acなど，ネットワーク通信を使うテストは，厳しいファイアウォールやネットワーク設定で失敗・停止する場合があります．訳注：この版ではlsl2acのソースは `disabled` 配下へ移動しています．
+- MinGW UCRTツールチェーンとlibtorchは互換性がないため，Windowsではlibtorchを使うプラグインをビルドしません．
 
-#### Windowsでの既知の問題
+単体テストは次のとおりです．
 
-* 多くの自動テスト（例：プラグインlsl2acをテストするユニットテスト）は、テスト実行中にネットワーク通信を使用します。これにより、制限的なファイアウォールまたはネットワーク設定のWindowsマシンでテストが失敗またはハングするなどの問題が発生する可能性があります。
-* libtorchを使用するopenMHAプラグインはWindowsでコンパイルされません。openMHAはMinGWツールチェーンを使用してコンパイルされますが、これはlibtorchライブラリと互換性がありません。
-
-#### ユニットテストによるテスト
-
-```bash
-pacman -S mingw-w64-x86_64-cmake
+```sh
 make unit-tests
 ```
 
-#### システムテストの実行
+システムテストには，[Adoptium](https://adoptium.net)からWindows／JDK／MSIの64ビット版Temurinを導入し，インストーラーに `JAVA_HOME` を設定させます．さらに[Octave](https://octave.org)のWindows 64ビット版をインストールします．新しいMSYS2 UCRT64ターミナルで `openMHA/mha/mhatest` へ移動し，実際のOctaveパスに置き換えて起動します．
 
-- https://jdk.java.net/ から64ビット版のopenJDK Javaをインストール
-- openJDKインストールの`bin`ディレクトリをシステムPATHに追加し、JAVA_HOME環境変数をそのbinディレクトリの親ディレクトリを指すように作成
-- http://octave.org から64ビットWindows用Octaveをインストール
-- MSYS2ターミナルでMinGW-64 bashシェルを起動
-- **openMHA/mha/mhatest**ディレクトリに移動
-- 以下を入力してOctaveを起動（正しいバージョンのOctaveを挿入）：
-
-```bash
-/c/Octave/Octave->>version<</mingw64/bin/octave-gui.exe --gui
+```sh
+/<Path-to-Octave>/mingw64/bin/octave-cli
 ```
 
-- Octave内で、以下のコマンドでopenMHAシステムテストを実行：
+Octave内で実行します（関数名の綴りは原文どおりです）．
 
+```matlab
+set_environement; run_mha_tests
 ```
-set_environement; run_all_tests
+
+## IV. Linuxでドキュメントを再生成する
+
+リリースには用途別のPDFマニュアルが含まれます．再生成する場合は，まずLinuxの通常ビルド用依存関係をインストールしてください．追加要件はUbuntu 22.04または26.04と，doxygen，fig2dev，graphviz，texlive，texlive-latex-extra，texlive-font-utilsです．
+
+Ubuntu 26.04だけで実行します．
+
+```sh
+cp mha/doc/openMHAdoxygen-26.04.sty mha/doc/openMHAdoxygen.sty
 ```
 
----
+両バージョン共通で実行します．
 
-## IV. Linuxでのドキュメント再生成
+```sh
+./configure && make doc
+```
 
-さまざまな対象読者向けのユーザーマニュアルがPDF形式でこのリリースに同梱されています。これらのファイルは、ターミナルで`./configure && make doc`を入力することで再生成することもできます（config.mkファイルがまだ作成されていない場合のみ./configureが必要です）。新しいマニュアルは./mha/doc/ディレクトリに作成されます。また、HTML Doxygenドキュメントが./mha/doc/mhadoc/html/に生成されます。
-
-まず、LinuxでのopenMHAコンパイルの依存関係をすべてインストールしてください。ドキュメントを再作成するには、以下の追加前提条件が必要です：
-
-- Ubuntu 20.04またはUbuntu 22.04
-- doxygen
-- xfig
-- graphviz
-- texlive
-- texlive-latex-extra
-- texlive-font-utils
-
----
-
-## 関連ドキュメント
-
-- [README（日本語）](README_ja.md)
-- [インストールガイド（日本語）](INSTALLATION_ja.md)
-- [README (English)](README.md)
-- [Installation Guide (English)](INSTALLATION.md)
+PDFはGitルートディレクトリへ，DoxygenのHTMLドキュメントは `mha/doc/mhadoc/html/` へ生成されます．
