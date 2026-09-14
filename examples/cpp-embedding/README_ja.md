@@ -30,6 +30,8 @@ examples/cpp-embedding/build/process_file \
 
 [gain-chain.cfg](gain-chain.cfg) は2つのgainプラグインを接続し，左右の最終ゲインを `[-10 10] dB` にします．[lowpass-chain.cfg](lowpass-chain.cfg) に替えると，-6 dBのゲインと2サンプル移動平均フィルターを適用します．設定は `mhachain` の内部を記述するため，CLI用設定の `mhalib` や `mha.` 接頭辞は不要です．IIR係数の変数名は大文字の `A` と `B` です．
 
+[compressor-chain.cfg](compressor-chain.cfg) では `transducers` がWAVの振幅をPaへ換算し，`dc_simple` で圧縮してから出力振幅へ戻します．使い方は同じで，最後の引数をこの設定ファイルに替えます．左右の校正値は検証用の仮定であり，測定済みの機器設定ではありません．詳細は [コンプレッサ検証](../../docs/COMPRESSOR_VALIDATION_ja.md) を参照してください．
+
 ## コードの読み方
 
 | ファイル | 役割 |
@@ -37,6 +39,7 @@ examples/cpp-embedding/build/process_file \
 | [main.cpp](main.cpp) | gainのロード，設定変更，128フレームごとの処理，数値検証 |
 | [process_file.cpp](process_file.cpp) | libsndfileでWAVを読み，mhachainへバッファを渡して出力 |
 | [verify_gain_file.cpp](verify_gain_file.cpp) | 既知のゲイン／フィルター式による全サンプルの比較 |
+| [verify_compressor.cpp](verify_compressor.cpp) | 圧縮曲線，校正換算，動的応答，ブロックサイズ非依存性の検証 |
 
 `Chain` のAC領域はプラグインより先に作り，後で破棄します．`prepare` 後に `process` を呼び，終了時に `release` します．出力バッファは借用です．コピーせず所有権を移したり，手動解放したりしないでください．
 
@@ -46,6 +49,6 @@ examples/cpp-embedding/build/process_file \
 
 フィルターの残響末尾は書き出さず，アルゴリズム遅延の補償も行いません．サンプルレート変換，スペクトル入出力，実時間のデバイス処理向けホストではありません．音圧校正が必要なコンプレッサへ拡張するときは，正規化WAV振幅とPaの対応を設定する必要があります．
 
-9件のCTestは単体gain，CLIによるWAV処理，自前ホストによる2段gainとローパス，各出力の数値比較，既存出力の上書き拒否，出力準備を含みます．ローパスの比較はブロック境界をまたぐフィルター状態と，最終端数ブロックも検査します．テストはビルドディレクトリ内の `gain-chain.wav` と `lowpass-chain.wav` を再生成します．
+10件のCTestは単体gain，CLIによるWAV処理，自前ホストによる2段gainとローパス，各出力の数値比較，既存出力の上書き拒否，出力準備，校正付きコンプレッサを含みます．ローパスの比較はブロック境界をまたぐフィルター状態と，最終端数ブロックも検査します．テストはビルドディレクトリ内の `gain-chain.wav` と `lowpass-chain.wav` を再生成します．
 
 ソースはAGPLv3です．配布・他アプリへの組み込み時は [COPYING](../../COPYING) の条件を確認してください．

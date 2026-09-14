@@ -76,3 +76,14 @@ add_test(NAME reject_existing_output COMMAND process_file
 set_tests_properties(reject_existing_output PROPERTIES
     ENVIRONMENT "MHA_LIBRARY_PATH=${OPENMHA_ROOT}/lib"
     FIXTURES_REQUIRED gain_chain WILL_FAIL TRUE)
+
+add_executable(verify_compressor verify_compressor.cpp)
+target_compile_features(verify_compressor PRIVATE cxx_std_17)
+target_compile_options(verify_compressor PRIVATE -Wall -Wextra -Wpedantic)
+target_include_directories(verify_compressor SYSTEM PRIVATE "${OPENMHA_INCLUDE_DIR}")
+target_link_libraries(verify_compressor PRIVATE "${OPENMHA_LIBRARY}")
+set_target_properties(verify_compressor PROPERTIES BUILD_RPATH "${OPENMHA_ROOT}/lib")
+add_test(NAME calibrated_compressor COMMAND verify_compressor
+    "${CMAKE_CURRENT_SOURCE_DIR}/compressor-chain.cfg")
+set_tests_properties(calibrated_compressor PROPERTIES
+    ENVIRONMENT "MHA_LIBRARY_PATH=${OPENMHA_ROOT}/lib" TIMEOUT 30)
